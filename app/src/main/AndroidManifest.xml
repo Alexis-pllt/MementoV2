@@ -48,6 +48,17 @@
             android:exported="false"
             android:parentActivityName=".MyGroupsActivity" />
 
+        <activity
+            android:name=".GroupFeedActivity"
+            android:exported="false"
+            android:parentActivityName=".MyGroupsActivity" />
+
+        <activity
+            android:name=".TakePictureActivity"
+            android:exported="false"
+            android:parentActivityName=".GroupDetailActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"/>
+
     </application>
 
 </manifest>
