@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 
 class GroupDetailActivity : AppCompatActivity() {
@@ -17,7 +18,8 @@ class GroupDetailActivity : AppCompatActivity() {
         val photoLimitPerUser: Int = 1,
         val open: Boolean = true, // Champ crucial
         val ownerId: String = "",
-        val members: List<String> = listOf()
+        val members: List<String> = listOf(),
+        val closingTime: Timestamp? = null
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,13 +46,16 @@ class GroupDetailActivity : AppCompatActivity() {
                 val targetIntent: Intent
 
                 if (group != null) {
-                    if (group.open) {
-                        // 🚨 OPEN = TRUE -> Redirection vers l'activité de prise de photo 🚨
+                    // Check if the group has a closing time and if it has passed
+                    if (group.open && (group.closingTime == null || group.closingTime.toDate().after(Timestamp.now().toDate()))) {
+                        // The group is open and not expired, redirect to the camera
                         targetIntent = Intent(this, TakePictureActivity::class.java)
                     } else {
-                        // 🚨 OPEN = FALSE -> Redirection vers le Feed (lecture seule) 🚨
+                        // The group is expired or already closed, so redirect to the feed
+                        if (group.open) {
+                            db.collection("groups").document(groupCode).update("open", false)
+                        }
                         targetIntent = Intent(this, GroupFeedActivity::class.java)
-                        // Nous passons toujours IS_OPEN=false au Feed pour qu'il n'affiche pas le bouton
                         targetIntent.putExtra("IS_OPEN", false)
                     }
 
@@ -66,6 +71,7 @@ class GroupDetailActivity : AppCompatActivity() {
                 finish()
             }
     }
+
 
     override fun onSupportNavigateUp(): Boolean {
         finish()
