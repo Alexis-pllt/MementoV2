@@ -3,6 +3,9 @@ package com.example.mementov2
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
@@ -14,25 +17,24 @@ import androidx.core.content.ContextCompat
 import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue // Pour l'incrémentation atomique
-import com.google.firebase.Timestamp // Pour l'horodatage
-import com.google.firebase.storage.FirebaseStorage // Import non-KTX
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.Timestamp
+import com.google.firebase.storage.FirebaseStorage
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
-// Assurez-vous que cette Data Class correspond à votre structure de document 'groups'
-// et inclut le champ photosTakenByUser pour éviter les erreurs de désérialisation.
 data class Group(
     val name: String = "",
     val joinCode: String = "",
     val photoLimitPerUser: Int = 1,
     val open: Boolean = true,
     val ownerId: String = "",
-    val members: List<String> = listOf()
-    // Le champ photosTakenByUser est géré comme une Map dans le code pour la sécurité
+    val members: List<String> = listOf(),
+    val closingTime: Timestamp? = null
 )
 
 class TakePictureActivity : AppCompatActivity() {
@@ -40,20 +42,24 @@ class TakePictureActivity : AppCompatActivity() {
     private val CAMERA_PERMISSION_REQUEST_CODE = 100
     private lateinit var cameraExecutor: ExecutorService
     private var imageCapture: ImageCapture? = null
+    private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-    // Services Firebase
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
-    private lateinit var storage: FirebaseStorage // Utilisation de la version standard
+    private lateinit var storage: FirebaseStorage
 
-    // Données du groupe et du compteur
     private lateinit var groupCode: String
     private var photoLimit: Int = 1
     private var currentPhotosTaken: Int = 0
     private lateinit var currentUserId: String
 
     private lateinit var photosRemainingTextView: TextView
+    private lateinit var countdownTimerTextView: TextView
     private lateinit var captureButton: ImageButton
+    private lateinit var flipCameraButton: ImageButton
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var countdownRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,25 +80,29 @@ class TakePictureActivity : AppCompatActivity() {
             return
         }
 
-        // 🚨 DÉBUT DE LA ZONE CRITIQUE (Initialisation Storage) 🚨
         try {
-            // REMPLACEZ CETTE CHAÎNE PAR VOTRE URL RÉELLE DE BUCKET (ex: gs://memento-v2-xxxx.appspot.com)
             storage = FirebaseStorage.getInstance("gs://memento-98044.firebasestorage.app")
-            // Si vous n'êtes pas sûr, utilisez juste getInstance(), mais le problème reviendra.
-            // storage = FirebaseStorage.getInstance()
         } catch (e: Exception) {
             Toast.makeText(this, "FATAL: Échec de l'initialisation de Storage.", Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        // 🚨 FIN DE LA ZONE CRITIQUE 🚨
-
 
         photosRemainingTextView = findViewById(R.id.photos_remaining_text)
+        countdownTimerTextView = findViewById(R.id.countdown_timer_text)
         captureButton = findViewById(R.id.capture_button)
+        flipCameraButton = findViewById(R.id.flip_camera_button)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // 1. Demander les permissions et charger les données
+        flipCameraButton.setOnClickListener {
+            cameraSelector = if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
+            startCamera()
+        }
+
         if (allPermissionsGranted()) {
             loadGroupDataAndStartCamera()
         } else {
@@ -102,17 +112,15 @@ class TakePictureActivity : AppCompatActivity() {
         }
     }
 
-    // Fonction pour lire le compte de photos persistant
     private fun loadGroupDataAndStartCamera() {
         db.collection("groups").document(groupCode).get()
             .addOnSuccessListener { document ->
-                // Utilisation de la méthode standard toObject(Class)
                 val group = document.toObject(Group::class.java)
 
                 if (group != null) {
                     photoLimit = group.photoLimitPerUser
+                    group.closingTime?.let { startCountdown(it) }
 
-                    // LECTURE DU COMPTEUR PERSISTANT DE FIRESTORE 🚨
                     val photosMap = document.get("photosTakenByUser") as? Map<String, Long> ?: emptyMap()
                     currentPhotosTaken = photosMap[currentUserId]?.toInt() ?: 0
 
@@ -120,9 +128,7 @@ class TakePictureActivity : AppCompatActivity() {
 
                     if (currentPhotosTaken < photoLimit) {
                         startCamera()
-                        captureButton.setOnClickListener {
-                            takePhoto()
-                        }
+                        captureButton.setOnClickListener { takePhoto() }
                     } else {
                         Toast.makeText(this, "Limite de photos atteinte pour ce groupe.", Toast.LENGTH_LONG).show()
                         captureButton.isEnabled = false
@@ -138,19 +144,37 @@ class TakePictureActivity : AppCompatActivity() {
             }
     }
 
-    // Met à jour l'interface utilisateur pour le décompte
+    private fun startCountdown(closingTime: Timestamp) {
+        countdownRunnable = object : Runnable {
+            override fun run() {
+                val remainingTime = closingTime.toDate().time - System.currentTimeMillis()
+                if (remainingTime > 0) {
+                    val days = TimeUnit.MILLISECONDS.toDays(remainingTime)
+                    val hours = TimeUnit.MILLISECONDS.toHours(remainingTime) % 24
+                    val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingTime) % 60
+
+                    countdownTimerTextView.text = String.format("Time remaining: %dd:%02dh:%02dm", days, hours, minutes)
+                    countdownTimerTextView.visibility = View.VISIBLE
+
+                    handler.postDelayed(this, 1000) // Répéter toutes les secondes
+                } else {
+                    countdownTimerTextView.text = "Group closed"
+                    captureButton.isEnabled = false
+                }
+            }
+        }
+        handler.post(countdownRunnable!!)
+    }
+
     private fun updatePhotoCounter() {
         val remaining = photoLimit - currentPhotosTaken
         photosRemainingTextView.text = "Photos restantes : $remaining / $photoLimit"
 
         if (remaining <= 0) {
             captureButton.isEnabled = false
-        } else {
-            captureButton.isEnabled = true
         }
     }
 
-    // Initialise le PreviewView et l'ImageCapture
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
@@ -164,11 +188,8 @@ class TakePictureActivity : AppCompatActivity() {
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build()
 
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
             try {
                 cameraProvider.unbindAll()
-
                 cameraProvider.bindToLifecycle(
                     this, cameraSelector, preview, imageCapture
                 )
@@ -179,7 +200,6 @@ class TakePictureActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    // Prend la photo, téléverse et sauvegarde dans Firestore
     private fun takePhoto() {
         if (currentPhotosTaken >= photoLimit) {
             updatePhotoCounter()
@@ -187,9 +207,8 @@ class TakePictureActivity : AppCompatActivity() {
         }
 
         val imageCapture = imageCapture ?: return
-        captureButton.isEnabled = false // Désactiver le bouton pendant la capture
+        captureButton.isEnabled = false
 
-        // Créer un fichier de sortie pour stocker l'image localement avant le téléversement
         val photoFile = File(
             externalMediaDirs.firstOrNull(),
             SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(System.currentTimeMillis()) + ".jpg"
@@ -207,32 +226,21 @@ class TakePictureActivity : AppCompatActivity() {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val msg = "Photo capturée! Téléversement en cours..."
                     Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-
-                    // 🚨 TÉLÉVERSEMENT ET SAUVEGARDE 🚨
                     uploadImageAndSaveRecord(output.savedUri ?: Uri.fromFile(photoFile), photoFile)
                 }
             }
         )
     }
 
-    // Fonction de téléversement et de mise à jour de la BDD
     private fun uploadImageAndSaveRecord(photoUri: Uri, photoFile: File) {
         val storageRef = storage.reference
-
         val timestamp = System.currentTimeMillis()
-
-        // CORRECTION DE LA SYNTAXE DU CHEMIN AVEC TRIPLE-QUOTES
         val storagePath = """photos/$groupCode/$currentUserId\_$timestamp.jpg"""
-
         val imageRef = storageRef.child(storagePath)
 
-        // 1. Téléverser le fichier
         imageRef.putFile(photoUri)
             .addOnSuccessListener {
-                // 2. Récupérer l'URL de téléchargement
                 imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
-
-                    // 3. Sauvegarder la référence dans la collection 'photos'
                     val newPhotoRecord = hashMapOf(
                         "groupId" to groupCode,
                         "userId" to currentUserId,
@@ -242,14 +250,12 @@ class TakePictureActivity : AppCompatActivity() {
 
                     db.collection("photos").add(newPhotoRecord)
                         .addOnSuccessListener {
-                            // Mettre à jour le compteur du groupe après le succès des deux opérations
                             updateGroupPhotoCount()
-
                             Toast.makeText(this, "Photo publiée avec succès!", Toast.LENGTH_LONG).show()
-
-                            // Nettoyage: Supprimer le fichier local
                             photoFile.delete()
-                            captureButton.isEnabled = true
+                            if (currentPhotosTaken < photoLimit) { 
+                                captureButton.isEnabled = true
+                            }
                         }
                         .addOnFailureListener {
                             Toast.makeText(this, "Erreur de sauvegarde Firestore (référence photo).", Toast.LENGTH_LONG).show()
@@ -258,21 +264,17 @@ class TakePictureActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener { e ->
-                // Échec du téléversement de l'image (Règles Storage, Connexion, ou Mauvais Bucket)
                 Toast.makeText(this, "Échec du téléversement de l'image: ${e.message}", Toast.LENGTH_LONG).show()
                 captureButton.isEnabled = true
             }
     }
 
-    // Fonction pour incrémenter le compteur dans le document 'group'
     private fun updateGroupPhotoCount() {
         val groupRef = db.collection("groups").document(groupCode)
-
-        // Incrémente atomiquement le compteur: photosTakenByUser.{currentUserId} += 1
         val updatePath = "photosTakenByUser.$currentUserId"
+
         groupRef.update(updatePath, FieldValue.increment(1))
             .addOnSuccessListener {
-                // Mettre à jour la variable locale et le compteur UI
                 currentPhotosTaken++
                 updatePhotoCounter()
             }
@@ -280,10 +282,6 @@ class TakePictureActivity : AppCompatActivity() {
                 Toast.makeText(this, "Avertissement: Échec de la mise à jour du compteur.", Toast.LENGTH_SHORT).show()
             }
     }
-
-    // ----------------------------------
-    // Gestion des permissions
-    // ----------------------------------
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
@@ -306,6 +304,7 @@ class TakePictureActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+        countdownRunnable?.let { handler.removeCallbacks(it) }
     }
 
     override fun onSupportNavigateUp(): Boolean {

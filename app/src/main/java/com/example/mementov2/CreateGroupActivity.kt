@@ -1,36 +1,80 @@
 package com.example.mementov2
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.example.mementov2.databinding.ActivityCreateGroupBinding // Assurez-vous d'avoir le ViewBinding activé
+import com.example.mementov2.databinding.ActivityCreateGroupBinding
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class CreateGroupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateGroupBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
+    private var closingTime: Calendar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialisation du ViewBinding
         binding = ActivityCreateGroupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialisation de Firebase
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
-        // Configuration de la Barre d'Action (pour le bouton retour)
         supportActionBar?.title = "Créer un nouveau groupe"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Listener du bouton de création
+        binding.btnSelectClosingTime.setOnClickListener {
+            showDateTimePicker()
+        }
+
         binding.btnCreateGroup.setOnClickListener {
             createGroup()
+        }
+    }
+
+    private fun showDateTimePicker() {
+        val currentCalendar = Calendar.getInstance()
+        val datePickerDialog = DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                val timePickerDialog = TimePickerDialog(
+                    this,
+                    { _, hourOfDay, minute ->
+                        closingTime = Calendar.getInstance().apply {
+                            set(Calendar.YEAR, year)
+                            set(Calendar.MONTH, month)
+                            set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                            set(Calendar.HOUR_OF_DAY, hourOfDay)
+                            set(Calendar.MINUTE, minute)
+                        }
+                        updateClosingTimeLabel()
+                    },
+                    currentCalendar.get(Calendar.HOUR_OF_DAY),
+                    currentCalendar.get(Calendar.MINUTE),
+                    true
+                )
+                timePickerDialog.show()
+            },
+            currentCalendar.get(Calendar.YEAR),
+            currentCalendar.get(Calendar.MONTH),
+            currentCalendar.get(Calendar.DAY_OF_MONTH)
+        )
+        datePickerDialog.datePicker.minDate = System.currentTimeMillis() - 1000
+        datePickerDialog.show()
+    }
+
+    private fun updateClosingTimeLabel() {
+        closingTime?.let {
+            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            binding.closingTimeTextView.text = "Closes on: ${sdf.format(it.time)}"
         }
     }
 
@@ -40,7 +84,6 @@ class CreateGroupActivity : AppCompatActivity() {
         val photoLimitText = binding.photoLimitEditText.text.toString().trim()
         val currentUserId = auth.currentUser?.uid
 
-        // --- 1. Validation des champs ---
         if (groupName.isEmpty() || joinCode.isEmpty() || photoLimitText.isEmpty()) {
             Toast.makeText(this, "Veuillez remplir tous les champs.", Toast.LENGTH_SHORT).show()
             return
@@ -57,31 +100,30 @@ class CreateGroupActivity : AppCompatActivity() {
             return
         }
 
-        // --- 2. Préparation des données du groupe ---
         val newGroup = hashMapOf(
             "name" to groupName,
-            "joinCode" to joinCode, // Utilisé pour joindre le groupe
+            "joinCode" to joinCode,
             "photoLimitPerUser" to photoLimit,
             "createdAt" to com.google.firebase.Timestamp.now(),
             "ownerId" to currentUserId,
-            "members" to listOf(currentUserId), // L'utilisateur qui crée est le premier membre
+            "members" to listOf(currentUserId),
             "open" to true
         )
 
-        // --- 3. Sauvegarde dans Firestore ---
+        closingTime?.let {
+            newGroup["closingTime"] = com.google.firebase.Timestamp(it.time)
+        }
 
-        // Nous allons utiliser le code secret comme ID de document pour garantir l'unicité
         db.collection("groups").document(joinCode).set(newGroup)
             .addOnSuccessListener {
                 Toast.makeText(this, "Groupe '$groupName' créé avec succès!", Toast.LENGTH_LONG).show()
-                finish() // Retourne à la MainActivity
+                finish()
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Erreur de création : ${e.message}", Toast.LENGTH_LONG).show()
             }
     }
 
-    // Pour gérer le bouton de retour (Up button) de l'ActionBar
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true

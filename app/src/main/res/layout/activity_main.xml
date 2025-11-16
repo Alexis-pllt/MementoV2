@@ -11,8 +11,8 @@
         android:id="@+id/hello_world_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
         android:layout_marginBottom="32dp"
+        android:text="Welcome to Memento, create or join a group to get started !"
         app:layout_constraintBottom_toTopOf="@id/btn_create_group"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -23,10 +23,11 @@
         android:id="@+id/btn_create_group"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Create group"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
-        app:layout_constraintBottom_toTopOf="@id/btn_join_group"  app:layout_constraintEnd_toEndOf="parent"
+        android:text="Create group"
+        app:layout_constraintBottom_toTopOf="@id/btn_join_group"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/hello_world_text" />
 
@@ -34,10 +35,10 @@
         android:id="@+id/btn_join_group"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Join group"
-        android:layout_marginTop="16dp"
         android:layout_marginStart="32dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
+        android:text="Join group"
         app:layout_constraintBottom_toTopOf="@id/btn_my_groups"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -47,13 +48,24 @@
         android:id="@+id/btn_my_groups"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="My groups"
-        android:layout_marginTop="16dp"
         android:layout_marginStart="32dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="32dp"
+        android:text="My groups"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_join_group"  app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintTop_toBottomOf="@id/btn_join_group"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <ImageView
+        android:id="@+id/imageView3"
+        android:layout_width="175dp"
+        android:layout_height="301dp"
+        app:layout_constraintBottom_toTopOf="@+id/btn_create_group"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/memento_logo_crop" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
