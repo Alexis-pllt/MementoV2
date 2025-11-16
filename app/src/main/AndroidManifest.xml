@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -33,20 +35,52 @@
         </activity>
 
         <activity
-            android:name=".CreateGroupActivity"
-            android:exported="false"
-            android:parentActivityName=".MainActivity" />
-
-
-        <activity
             android:name=".MyGroupsActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity" />
+            android:label="My Groups"
+            android:theme="@style/Theme.AppWithActionBar">
+        </activity>
 
         <activity
-            android:name=".JoinGroupActivity"
+            android:name=".ProfileActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity" />
+            android:parentActivityName=".MyGroupsActivity" />
+
+        <activity
+            android:name=".CreateGroupActivity"
+            android:exported="false"
+            android:parentActivityName=".MyGroupsActivity" />
+
+        <activity
+            android:name=".LinkHandlerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="https"
+                    android:host="mementoapp.com"
+                    android:pathPrefix="/join" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".JoinGroupActivity"
+            android:exported="true"
+            android:parentActivityName=".MyGroupsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="memento"
+                    android:host="join"
+                    android:pathPrefix="/code" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".GroupDetailActivity"
             android:exported="false"

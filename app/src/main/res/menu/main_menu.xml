@@ -2,13 +2,25 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <item
-        android:id="@+id/menu_profile"
-        android:title="Profil"
-        app:showAsAction="never" />
 
     <item
         android:id="@+id/menu_logout"
-        android:title="Déconnexion"
+        android:title="Log Out"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_profile"
+        android:title="Profile"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_create_group"
+        android:title="Create group"
+        app:showAsAction="never"
+        android:visible="false" />
+    <item
+        android:id="@+id/menu_join_group"
+        android:title="Join group"
+        app:showAsAction="never"
+        android:visible="false" />
 </menu>

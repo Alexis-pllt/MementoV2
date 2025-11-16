@@ -24,7 +24,7 @@ class JoinGroupActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
-        supportActionBar?.title = "Rejoindre un groupe"
+        supportActionBar?.title = "Join a group"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         binding.btnJoinGroupSubmit.setOnClickListener {
