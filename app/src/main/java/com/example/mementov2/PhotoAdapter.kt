@@ -14,9 +14,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.IgnoreExtraProperties
+import de.hdodenhof.circleimageview.CircleImageView // 🚨 Assurez-vous que cet import est présent 🚨
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+// Data class Photo (inchangée)
 @IgnoreExtraProperties
 data class Photo(
     @com.google.firebase.firestore.DocumentId val id: String = "",
@@ -26,6 +28,13 @@ data class Photo(
     val timestamp: Timestamp? = null,
     val likes: List<String> = emptyList()
 )
+
+// 🚨 Data class pour les informations de profil utilisateur 🚨
+data class UserProfile(
+    val username: String? = null,
+    val profileImageUrl: String? = null
+)
+
 
 class PhotoAdapter(private val photos: List<Photo>) : RecyclerView.Adapter<PhotoAdapter.PhotoViewHolder>() {
 
@@ -42,15 +51,26 @@ class PhotoAdapter(private val photos: List<Photo>) : RecyclerView.Adapter<Photo
     override fun getItemCount() = photos.size
 
     class PhotoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        // Vues existantes
         private val photoImageView: ImageView = itemView.findViewById(R.id.photo_image_view)
         private val likeButton: ImageButton = itemView.findViewById(R.id.like_button)
         private val likeCountTextView: TextView = itemView.findViewById(R.id.like_count_text_view)
         private val timestampTextView: TextView = itemView.findViewById(R.id.timestamp_text_view)
 
+        // 🚨 VUES DU PROFIL : Initialisation correcte avec le type CircleImageView 🚨
+        private val profileImageView: CircleImageView = itemView.findViewById(R.id.profile_image_feed)
+        private val usernameTextView: TextView = itemView.findViewById(R.id.text_view_username)
+        // -------------------------------------------------------------------------
+
         private val db = FirebaseFirestore.getInstance()
         private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
         fun bind(photo: Photo) {
+
+            // 🚨 ÉTAPE 1 : Charger le profil utilisateur 🚨
+            loadUserProfile(photo.userId)
+
+            // Charger l'image principale du feed
             if (photo.storageUrl.isNotEmpty()) {
                 Glide.with(itemView.context)
                     .load(photo.storageUrl)
@@ -73,10 +93,41 @@ class PhotoAdapter(private val photos: List<Photo>) : RecyclerView.Adapter<Photo
             }
         }
 
+        /**
+         * Effectue une requête secondaire pour récupérer le profil de l'utilisateur.
+         */
+        private fun loadUserProfile(userId: String) {
+            db.collection("users").document(userId).get()
+                .addOnSuccessListener { document ->
+                    // Désérialisation du profil utilisateur
+                    val userProfile = document.toObject(UserProfile::class.java)
+
+                    val username = userProfile?.username ?: "Unknown User"
+                    val profileUrl = userProfile?.profileImageUrl
+
+                    // 1. Afficher le nom d'utilisateur
+                    usernameTextView.text = username
+
+                    // 2. Charger la photo de profil
+                    if (!profileUrl.isNullOrEmpty()) {
+                        Glide.with(itemView.context)
+                            .load(profileUrl)
+                            .placeholder(R.drawable.ic_profile_default)
+                            .into(profileImageView)
+                    } else {
+                        profileImageView.setImageResource(R.drawable.ic_profile_default)
+                    }
+                }
+                .addOnFailureListener {
+                    usernameTextView.text = "Anonimous"
+                    profileImageView.setImageResource(R.drawable.ic_profile_default)
+                }
+        }
+
+
         private fun toggleLike(photo: Photo) {
             if (currentUserId == null) return
 
-            // --- DIAGNOSTIC LOG --- //
             Log.d("LikeDebug", "Attempting to update photo with ID: '${photo.id}'")
 
             if (photo.id.isEmpty()) {
