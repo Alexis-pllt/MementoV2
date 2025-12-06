@@ -12,17 +12,31 @@
         android:id="@+id/groups_scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:paddingTop="26dp"
-        android:layout_marginBottom="16dp"
+        android:paddingTop="16dp"
+        android:layout_marginBottom="8dp"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/bottom_action_bar"> <LinearLayout
-        android:id="@+id/groups_list_container"
+        app:layout_constraintBottom_toTopOf="@+id/hidden_groups_toggle_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <LinearLayout
+            android:id="@+id/groups_list_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <!-- Removed minHeight so it hides completely when empty -->
+    <LinearLayout
+        android:id="@+id/hidden_groups_toggle_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-    </LinearLayout>
-    </ScrollView>
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/bottom_action_bar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <LinearLayout
         android:id="@+id/bottom_action_bar"
@@ -38,28 +52,29 @@
             android:id="@+id/btn_create_group_main"
             style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
-            android:layout_height="match_parent"  android:layout_weight="1"
+            android:layout_height="match_parent"  
+            android:layout_weight="1"
             android:text="CREATE GROUP"
             android:layout_marginEnd="8dp"
             android:backgroundTint="?attr/colorPrimary"
             app:cornerRadius="12dp"
-            app:icon="@drawable/ic_add"  app:iconTint="@android:color/white"
-            app:iconPadding="8dp"
-            />
+            app:icon="@drawable/ic_add"  
+            app:iconTint="@android:color/white"
+            app:iconPadding="8dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_join_group_main"
             style="@style/Widget.MaterialComponents.Button"
             android:layout_width="0dp"
-            android:layout_height="match_parent"  android:layout_weight="1"
+            android:layout_height="match_parent"  
+            android:layout_weight="1"
             android:text="JOIN GROUP"
             android:layout_marginStart="8dp"
             android:backgroundTint="?attr/colorPrimary"
             app:cornerRadius="12dp"
             app:icon="@drawable/ic_group_add"
             app:iconTint="@android:color/white"
-            app:iconPadding="8dp"
-            />
+            app:iconPadding="8dp" />
 
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
